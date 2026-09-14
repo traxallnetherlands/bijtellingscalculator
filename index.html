@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bijtellingscalculator</title>
+  <link rel="icon" href="logo-rdw.png">
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <style>
+    :root {
+      --blue: #213153;
+      --blue-dark: #18243d;
+      --soft: #f8faff;
+      --line: #cfd6e4;
+      --green: #16875d;
+      --orange: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      min-height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #202633;
+      background: var(--blue);
+    }
+    body { padding: 30px 20px; }
+    .wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 1400px;
+      margin: auto;
+    }
+    .box {
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 2px 2px 10px #0003;
+    }
+    .brand {
+      display: grid;
+      grid-template-columns: 220px 1fr 220px;
+      align-items: center;
+      gap: 20px;
+    }
+    .brand img {
+      max-width: 200px;
+      max-height: 90px;
+      object-fit: contain;
+    }
+    .brand img:last-child { justify-self: end; }
+    h1, h2 { margin: 0; color: var(--blue); }
+    h1 { text-align: center; font-size: 28px; }
+    .work-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr) minmax(280px, 360px);
+      gap: 20px;
+    }
+    .actions, .input-panel, .summary {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    button {
+      width: 100%;
+      min-height: 52px;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: var(--blue-dark); }
+    button:disabled {
+      color: #f4f4f4;
+      background: #c7cbd3;
+      opacity: .85;
+      cursor: not-allowed;
+    }
+    #fetchButton { color: var(--blue); background: var(--orange); }
+    #fetchButton:hover:not(:disabled) { background: #e58e00; }
+    #exportButton {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      background: var(--green);
+    }
+    #exportButton::before {
+      width: 20px;
+      height: 20px;
+      content: "";
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='3' fill='%23217346'/%3E%3Cpath fill='white' d='M5 5h7v14H5zm8 2h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6zM7 8l1.4 2.5L9.8 8h1.7l-2.2 4 2.3 4H9.9l-1.5-2.6L6.9 16H5.2l2.3-4-2.2-4z'/%3E%3C/svg%3E") center/contain no-repeat;
+    }
+    textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 220px;
+      padding: 14px;
+      resize: vertical;
+      border: 2px dashed var(--line);
+      border-radius: 10px;
+      background: var(--soft);
+      font: 15px/1.6 Consolas, monospace;
+    }
+    .input-count { color: #555; font-size: 12px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat {
+      padding: 14px 10px;
+      text-align: center;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .stat strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--blue);
+      font-size: 12px;
+    }
+    .stat span { color: var(--blue); font-size: 25px; font-weight: bold; }
+    .status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 88px;
+      padding: 12px 15px;
+      overflow: hidden;
+      text-align: center;
+      line-height: 1.2;
+      border-radius: 8px;
+      white-space: pre-line;
+    }
+    .info { background: #edf2f8; border: 1px solid var(--line); }
+    .success {
+      color: #0d6745;
+      background: #e9f8f1;
+      border: 1px solid #b9e7d3;
+      font-weight: bold;
+    }
+    .warning { color: #765000; background: #fff7e3; border: 1px solid #efd38d; }
+    .error { color: #84291f; background: #fff0ee; border: 1px solid #ecc0ba; }
+    .progress { display: none; }
+    .progress.show { display: block; }
+    .progress-text { margin-bottom: 6px; color: #555; font-size: 12px; }
+    .progress-track { height: 9px; overflow: hidden; background: #e4e8ef; border-radius: 10px; }
+    .progress-bar { width: 0; height: 100%; background: var(--blue); transition: width .2s; }
+    .results { display: none; }
+    .results.show { display: block; }
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      margin-bottom: 12px;
+    }
+    #filterInput {
+      width: 340px;
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    .table-wrapper {
+      max-height: 600px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    table { width: 100%; min-width: 950px; border-collapse: collapse; font-size: 13px; }
+    th {
+      position: sticky;
+      top: 0;
+      padding: 10px 8px;
+      color: #fff;
+      background: var(--blue);
+      text-align: left;
+    }
+    td { padding: 8px; border-bottom: 1px solid #ddd; }
+    tbody tr:nth-child(even) td { background: #f5f7fa; }
+    .number { text-align: right; }
+    .plate { font-weight: bold; }
+    footer { color: #fffc; text-align: center; font-size: 12px; }
+    @media (max-width: 1050px) {
+      .work-grid { grid-template-columns: 1fr; }
+      .actions { display: grid; grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 650px) {
+      body { padding: 15px 10px; }
+      .brand { grid-template-columns: 1fr; justify-items: center; }
+      .brand img:last-child { justify-self: center; }
+      .actions, .stats { grid-template-columns: 1fr; }
+      .results-header { align-items: stretch; flex-direction: column; }
+      #filterInput { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <section class="box brand">
+      <img src="logo-traxall.png" alt="TraXall">
+      <h1>Bijtellingscalculator</h1>
+      <img src="logo-rdw.png" alt="RDW">
+    </section>
+
+    <section class="box">
+      <div class="work-grid">
+        <div class="actions">
+          <button id="fetchButton">Bijtelling berekenen</button>
+          <button id="clearButton">Wissen</button>
+          <button id="exportButton" disabled>Exporteren naar Excel</button>
+          <div id="progress" class="progress">
+            <div id="progressText" class="progress-text"></div>
+            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+          </div>
+        </div>
+
+        <div class="input-panel">
+          <textarea id="licenseInput" placeholder="Plak hier de kentekens..."></textarea>
+          <div id="inputCount" class="input-count">0 unieke kentekens</div>
+        </div>
+
+        <div class="summary">
+          <div class="stats">
+            <div class="stat"><strong>INGEVOERD</strong><span id="inputStat">0</span></div>
+            <div class="stat"><strong>GEVONDEN</strong><span id="foundStat">0</span></div>
+          </div>
+          <div id="statusBox" class="status info">
+            Voer kentekens in en klik op<br><strong>Bijtelling berekenen</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" class="box results">
+      <div class="results-header">
+        <h2>Resultaten</h2>
+        <input id="filterInput" placeholder="Filter resultaten...">
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Kenteken</th>
+              <th>Powertrain</th>
+              <th class="number">Catalogusprijs</th>
+              <th class="number">Datum 1e Toelating</th>
+              <th class="number">Gewogen bijtelling</th>
+              <th>Bijtellingscode</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Gegevens worden rechtstreeks opgehaald uit RDW Open Data. Deze tool is een rekenhulpmiddel en geen fiscaal advies.
+    </footer>
+  </div>
+
+  <script>
+    "use strict";
+
+    const DATASETS = {
+      vehicles: "m9d7-ebf2",
+      fuels: "8ys7-d773",
+    };
+    const API_BASE = "https://opendata.rdw.nl/resource/";
+    const $ = (id) => document.getElementById(id);
+
+    let state = createState();
+
+    function createState() {
+      return {
+        plates: [],
+        found: [],
+        missing: [],
+        vehicles: [],
+        fuels: [],
+        results: [],
+      };
+    }
+
+    function normalizePlate(value) {
+      return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    }
+
+    function parsePlates(value) {
+      return [...new Set(
+        String(value || "")
+          .replace(/[;,|\t\r\n]+/g, " ")
+          .split(/\s+/)
+          .map(normalizePlate)
+          .filter((plate) => plate.length >= 4 && plate.length <= 8),
+      )];
+    }
+
+    function setStatus(message, type = "info", html = false) {
+      $("statusBox").className = `status ${type}`;
+      if (html) $("statusBox").innerHTML = message;
+      else $("statusBox").textContent = message;
+    }
+
+    function setBusy(busy) {
+      $("fetchButton").disabled = busy;
+      $("clearButton").disabled = busy;
+      if (busy) $("exportButton").disabled = true;
+      $("progress").classList.toggle("show", busy);
+    }
+
+    function setProgress(percent, text) {
+      $("progressBar").style.width = `${percent}%`;
+      $("progressText").textContent = text;
+    }
+
+    function chunk(values, size = 35) {
+      const output = [];
+      for (let index = 0; index < values.length; index += size) {
+        output.push(values.slice(index, index + size));
+      }
+      return output;
+    }
+
+    async function fetchByPlate(dataset, plates, callback) {
+      const output = [];
+      const groups = chunk(plates);
+
+      for (let index = 0; index < groups.length; index++) {
+        if (callback) callback(index + 1, groups.length);
+        const quoted = groups[index]
+          .map((value) => `'${String(value).replace(/'/g, "''")}'`)
+          .join(",");
+        const query = new URLSearchParams({
+          $where: `kenteken in(${quoted})`,
+          $limit: "50000",
+        });
+        const response = await fetch(`${API_BASE}${dataset}.json?${query}`);
+        if (!response.ok) throw new Error(`${dataset}: HTTP ${response.status}`);
+        output.push(...await response.json());
+      }
+
+      return output;
+    }
+
+    function groupByPlate(rows) {
+      const map = new Map();
+      rows.forEach((row) => {
+        const plate = normalizePlate(row.kenteken);
+        if (!plate) return;
+        if (!map.has(plate)) map.set(plate, []);
+        map.get(plate).push(row);
+      });
+      return map;
+    }
+
+    function toDate(value) {
+      const text = String(value || "").trim();
+      let year;
+      let month;
+      let day;
+
+      if (/^\d{8}$/.test(text)) {
+        year = Number(text.slice(0, 4));
+        month = Number(text.slice(4, 6));
+        day = Number(text.slice(6, 8));
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+        year = Number(text.slice(0, 4));
+        month = Number(text.slice(5, 7));
+        day = Number(text.slice(8, 10));
+      } else {
+        return "";
+      }
+
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      return Number.isNaN(date.getTime()) ? "" : date;
+    }
+
+    function displayDate(value) {
+      if (!(value instanceof Date)) return "";
+      return new Intl.DateTimeFormat("nl-NL", {
+        timeZone: "UTC",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(value);
+    }
+
+    function displayPrice(value) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "";
+      return new Intl.NumberFormat("nl-NL", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      }).format(value);
+    }
+
+    function displayPercentage(value) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "";
+      return new Intl.NumberFormat("nl-NL", {
+        style: "percent",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
+
+    function addMonthsFirstOfNextMonth(date, months) {
+      const result = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        1,
+        12,
+        0,
+        0,
+      ));
+      result.setUTCMonth(result.getUTCMonth() + months);
+      return result;
+    }
+
+    function rulesForYear(year) {
+      const table = {
+        2017: { rate: 4, cap: Infinity },
+        2018: { rate: 4, cap: Infinity },
+        2019: { rate: 4, cap: 50000 },
+        2020: { rate: 8, cap: 45000 },
+        2021: { rate: 12, cap: 40000 },
+        2022: { rate: 16, cap: 35000 },
+        2023: { rate: 16, cap: 30000 },
+        2024: { rate: 16, cap: 30000 },
+        2025: { rate: 17, cap: 30000 },
+        2026: { rate: 18, cap: 30000 },
+      };
+      return table[year] || null;
+    }
+
+    function determinePowertrain(fuels) {
+      const descriptions = fuels.map((row) => String(row.brandstof_omschrijving || "").toLowerCase());
+      const classes = fuels.map((row) => String(row.klasse_hybride_elektrisch_voertuig || "").trim().toUpperCase());
+      const has = (value) => descriptions.some((item) => item.includes(value));
+      const combustion = descriptions.some((item) => /benzine|diesel|lpg|cng|aardgas|lng|ethanol/.test(item));
+
+      if (classes.some((value) => value === "OVC-FCHV" || value === "NOVC-FCHV")) return "FCEV";
+      if (classes.includes("NOVC-HEV")) return "HEV/MHEV";
+      if (classes.includes("OVC-HEV")) return "PHEV";
+      if (has("waterstof") && has("elektriciteit")) return "FCEV";
+      if (has("waterstof")) return "H2";
+      if (has("elektriciteit") && !combustion) return "BEV";
+      if (has("elektriciteit") && combustion) return "HEV/MHEV";
+      return "ICE";
+    }
+
+    function calculateBijtelling(vehicle, fuels, powertrain, now = new Date()) {
+      const price = Number(vehicle.catalogusprijs);
+      const firstDate = toDate(vehicle.datum_eerste_toelating);
+
+      if (!price || !(firstDate instanceof Date)) {
+        return { weightedRate: "", code: "" };
+      }
+
+      const ageYears = (now.getTime() - firstDate.getTime()) / (365.2425 * 24 * 60 * 60 * 1000);
+      if (ageYears >= 16) {
+        return { weightedRate: "", code: "35" };
+      }
+
+      if (["FCEV", "H2"].includes(powertrain)) {
+        const original = rulesForYear(firstDate.getUTCFullYear());
+        const switchDate = addMonthsFirstOfNextMonth(firstDate, 60);
+        const active = original && now < switchDate ? original : rulesForYear(2026);
+        return active
+          ? { weightedRate: active.rate / 100, code: `22+${active.rate}` }
+          : { weightedRate: "", code: "" };
+      }
+
+      if (powertrain === "BEV") {
+        const original = rulesForYear(firstDate.getUTCFullYear());
+        if (!original) return { weightedRate: "", code: "" };
+
+        const switchDate = addMonthsFirstOfNextMonth(firstDate, 60);
+        const active = now < switchDate ? original : rulesForYear(2026);
+        const lowBase = Math.min(price, active.cap);
+        const highBase = Math.max(0, price - active.cap);
+        const annual = lowBase * (active.rate / 100) + highBase * 0.22;
+
+        return {
+          weightedRate: annual / price,
+          code: `22+${active.rate}`,
+        };
+      }
+
+      const generalRate = firstDate.getUTCFullYear() < 2017 ? 25 : 22;
+      return { weightedRate: generalRate / 100, code: String(generalRate) };
+    }
+
+    function combineData() {
+      const vehicleMap = groupByPlate(state.vehicles);
+      const fuelMap = groupByPlate(state.fuels);
+      state.results = [];
+
+      for (const plate of state.plates) {
+        const vehicle = (vehicleMap.get(plate) || [])[0];
+        if (!vehicle) continue;
+
+        const fuels = fuelMap.get(plate) || [];
+        const powertrain = determinePowertrain(fuels);
+        const calculation = calculateBijtelling(vehicle, fuels, powertrain);
+        const price = Number(vehicle.catalogusprijs);
+
+        state.results.push({
+          Kenteken: plate,
+          Powertrain: powertrain,
+          Catalogusprijs: Number.isFinite(price) ? price : "",
+          "Datum 1e Toelating": toDate(vehicle.datum_eerste_toelating),
+          "Gewogen bijtelling": calculation.weightedRate,
+          Bijtellingscode: calculation.code,
+        });
+      }
+    }
+
+    async function runSearch() {
+      const plates = parsePlates($("licenseInput").value);
+      if (!plates.length) {
+        setStatus("Voer minimaal één geldig kenteken in.", "warning");
+        return;
+      }
+
+      state = createState();
+      state.plates = plates;
+      $("inputStat").textContent = plates.length;
+      $("foundStat").textContent = 0;
+      $("results").classList.remove("show");
+      setBusy(true);
+
+      try {
+        state.vehicles = await fetchByPlate(DATASETS.vehicles, plates, (current, total) => {
+          setProgress(10 + Math.round((current / total) * 40), `Voertuiggegevens: batch ${current} van ${total}`);
+        });
+
+        state.fuels = await fetchByPlate(DATASETS.fuels, plates, (current, total) => {
+          setProgress(55 + Math.round((current / total) * 35), `Brandstofgegevens: batch ${current} van ${total}`);
+        });
+
+        const foundSet = new Set(state.vehicles.map((row) => normalizePlate(row.kenteken)));
+        state.found = plates.filter((plate) => foundSet.has(plate));
+        state.missing = plates.filter((plate) => !foundSet.has(plate));
+        combineData();
+
+        $("foundStat").textContent = state.found.length;
+        renderResults();
+        $("results").classList.add("show");
+        $("exportButton").disabled = !state.results.length;
+        setProgress(100, "Berekening afgerond");
+
+        setStatus(
+          `${state.found.length} van de ${plates.length} kentekens gevonden.\nDe Excel-export staat klaar.`,
+          state.missing.length ? "warning" : "success",
+        );
+      } catch (error) {
+        setStatus(`Ophalen mislukt: ${error.message}`, "error");
+      } finally {
+        setBusy(false);
+        $("exportButton").disabled = !state.results.length;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function renderResults() {
+      const map = new Map(state.results.map((row) => [row.Kenteken, row]));
+      $("resultsBody").innerHTML = state.plates
+        .filter((plate) => map.has(plate))
+        .map((plate) => {
+          const row = map.get(plate);
+          return `<tr data-search="${escapeHtml(Object.values(row).join(" ").toLowerCase())}">
+            <td class="plate">${escapeHtml(row.Kenteken)}</td>
+            <td>${escapeHtml(row.Powertrain)}</td>
+            <td class="number">${displayPrice(row.Catalogusprijs)}</td>
+            <td class="number">${displayDate(row["Datum 1e Toelating"])}</td>
+            <td class="number">${displayPercentage(row["Gewogen bijtelling"])}</td>
+            <td>${escapeHtml(row.Bijtellingscode)}</td>
+          </tr>`;
+        })
+        .join("");
+    }
+
+    async function downloadExcel() {
+      try {
+        if (typeof ExcelJS === "undefined") throw new Error("ExcelJS is niet geladen.");
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "TraXall Bijtellingscalculator";
+        const worksheet = workbook.addWorksheet("Bijtelling", {
+          properties: { tabColor: { argb: "FFC6EFCE" } },
+        });
+
+        worksheet.columns = [
+          { header: "Kenteken", key: "Kenteken", width: 14 },
+          { header: "Powertrain", key: "Powertrain", width: 16 },
+          { header: "Catalogusprijs", key: "Catalogusprijs", width: 18 },
+          { header: "Datum 1e Toelating", key: "Datum 1e Toelating", width: 22 },
+          { header: "Gewogen bijtelling", key: "Gewogen bijtelling", width: 22 },
+          { header: "Bijtellingscode", key: "Bijtellingscode", width: 18 },
+        ];
+
+        state.results.forEach((row) => worksheet.addRow(row));
+        worksheet.autoFilter = { from: "A1", to: "F1" };
+        worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+        worksheet.getRow(1).eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF213153" } };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+
+        worksheet.getColumn("Catalogusprijs").numFmt = '€ #,##0';
+        worksheet.getColumn("Datum 1e Toelating").numFmt = "dd-mm-yyyy";
+        worksheet.getColumn("Gewogen bijtelling").numFmt = "0.00%";
+
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) {
+            row.eachCell((cell) => {
+              cell.alignment = { vertical: "middle", horizontal: "center" };
+            });
+          }
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const now = new Date();
+        const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        link.href = url;
+        link.download = `Bijtellingscalculator_${stamp}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setStatus("De Excel-export is gedownload.", "success");
+      } catch (error) {
+        console.error(error);
+        setStatus(`Excel-export mislukt: ${error.message}`, "error");
+      }
+    }
+
+    function clearAll() {
+      state = createState();
+      $("licenseInput").value = "";
+      $("inputStat").textContent = 0;
+      $("foundStat").textContent = 0;
+      $("resultsBody").innerHTML = "";
+      $("results").classList.remove("show");
+      $("exportButton").disabled = true;
+      $("filterInput").value = "";
+      setStatus("Voer kentekens in en klik op<br><strong>Bijtelling berekenen</strong>", "info", true);
+      updateCount();
+    }
+
+    function updateCount() {
+      const count = parsePlates($("licenseInput").value).length;
+      $("inputCount").textContent = `${count} ${count === 1 ? "uniek kenteken" : "unieke kentekens"}`;
+      $("inputStat").textContent = count;
+    }
+
+    $("licenseInput").oninput = updateCount;
+    $("fetchButton").onclick = runSearch;
+    $("clearButton").onclick = clearAll;
+    $("exportButton").onclick = downloadExcel;
+    $("filterInput").oninput = (event) => {
+      const query = event.target.value.toLowerCase();
+      document.querySelectorAll("#resultsBody tr").forEach((row) => {
+        row.style.display = (row.dataset.search || "").includes(query) ? "" : "none";
+      });
+    };
+  </script>
+</body>
+</html>
